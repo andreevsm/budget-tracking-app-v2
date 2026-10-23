@@ -9,9 +9,17 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"budget/internal/config"
 )
 
 func main() {
+	conf, err := config.Load()
+
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		syscall.SIGINT,
@@ -40,7 +48,7 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:              ":8080",
+		Addr:              conf.Addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -66,10 +74,10 @@ func main() {
 
 	defer cancel()
 
-	err := srv.Shutdown(shutdownCtx)
+	errShutdown := srv.Shutdown(shutdownCtx)
 
-	if err != nil {
-		log.Printf("shutdown failed: %v", err)
+	if errShutdown != nil {
+		log.Printf("shutdown failed: %v", errShutdown)
 
 		_ = srv.Close()
 	}
