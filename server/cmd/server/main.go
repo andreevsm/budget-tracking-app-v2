@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"budget/internal/config"
+	"budget/internal/db"
 )
 
 func main() {
@@ -27,6 +28,14 @@ func main() {
 	)
 
 	defer stop()
+
+	pool, poolErr := db.New(ctx, conf.DSN)
+
+	if poolErr != nil {
+		log.Fatalf("connection pool failed: %v", poolErr)
+	}
+
+	defer pool.Close()
 
 	mux := http.NewServeMux()
 

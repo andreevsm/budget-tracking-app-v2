@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	Addr string
+	DSN  string
 }
 
 func Load() (Config, error) {
@@ -27,5 +28,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("port should be between 1 and 65535")
 	}
 
-	return Config{Addr: ":" + strconv.Itoa(addr)}, nil
+	dsn, ok := os.LookupEnv("DB_DSN")
+
+	if !ok || dsn == "" {
+		return Config{}, fmt.Errorf("DB_DSN is required")
+	}
+
+	return Config{Addr: ":" + strconv.Itoa(addr), DSN: dsn}, nil
 }
