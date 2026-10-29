@@ -12,6 +12,7 @@ import (
 
 	"budget/internal/config"
 	"budget/internal/db"
+	"budget/internal/repository"
 )
 
 func main() {
@@ -37,14 +38,16 @@ func main() {
 
 	defer pool.Close()
 
+	repo := repository.NewRepository(pool)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		err := pool.Ping(r.Context())
 
 		if err != nil {
-			log.Printf("Health check failed: %v", err)
-			http.Error(w, "Health check failed", http.StatusServiceUnavailable)
+			log.Printf("health check failed: %v", err)
+			http.Error(w, "health check failed", http.StatusServiceUnavailable)
 			return
 		}
 
@@ -62,6 +65,19 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "ok",
 		})
+	})
+
+	mux.HandleFunc("GET /api/v1/currencies", func(w http.ResponseWriter, r *http.Request) {
+		currencies, err := repo.List(r.Context())
+
+		if err != nil {
+			log.Printf("failed to get currencies: %v", err)
+			http.Error(w, "failed to get currencies", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(currencies)
 	})
 
 	srv := &http.Server{
