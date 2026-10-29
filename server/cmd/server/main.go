@@ -40,6 +40,14 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		err := pool.Ping(r.Context())
+
+		if err != nil {
+			log.Printf("Health check failed: %v", err)
+			http.Error(w, "Health check failed", http.StatusServiceUnavailable)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status": "ok",
@@ -61,7 +69,7 @@ func main() {
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      1 * time.Second,
+		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
