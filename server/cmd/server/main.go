@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -16,10 +17,13 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
 	conf, err := config.Load()
 
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		logger.Error("load config failed", "error", err)
+		os.Exit(1)
 	}
 
 	ctx, stop := signal.NotifyContext(
@@ -33,7 +37,8 @@ func main() {
 	pool, poolErr := db.New(ctx, conf.DSN)
 
 	if poolErr != nil {
-		log.Fatalf("connection pool failed: %v", poolErr)
+		logger.Error("connection pool failed", "error", poolErr)
+		os.Exit(1)
 	}
 
 	defer pool.Close()
@@ -46,7 +51,7 @@ func main() {
 		err := pool.Ping(r.Context())
 
 		if err != nil {
-			log.Printf("health check failed: %v", err)
+			logger.Error("health check failed", "error", err)
 			http.Error(w, "health check failed", http.StatusServiceUnavailable)
 			return
 		}
@@ -71,7 +76,7 @@ func main() {
 		currencies, err := repo.List(r.Context())
 
 		if err != nil {
-			log.Printf("failed to get currencies: %v", err)
+			logger.Error("failed to get currencies", "error", err)
 			http.Error(w, "failed to get currencies", http.StatusInternalServerError)
 			return
 		}
@@ -89,16 +94,19 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
+	logger.Info("server started", "addr", conf.Addr)
+
 	go func() {
 		err := srv.ListenAndServe()
 
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server failed: %v", err)
+			logger.Error("server failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Printf("Shutting down")
+	logger.Info("shutting down")
 
 	shutdownCtx, cancel := context.WithTimeout(
 		context.Background(),
@@ -110,10 +118,10 @@ func main() {
 	errShutdown := srv.Shutdown(shutdownCtx)
 
 	if errShutdown != nil {
-		log.Printf("shutdown failed: %v", errShutdown)
+		logger.Error("shutdown failed", "error", errShutdown)
 
 		_ = srv.Close()
 	}
 
-	log.Printf("Server stopped")
+	logger.Info("server stopped")
 }
