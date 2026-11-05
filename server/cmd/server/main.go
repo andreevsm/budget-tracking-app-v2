@@ -73,7 +73,7 @@ func main() {
 	})
 
 	mux.HandleFunc("GET /api/v1/currencies", func(w http.ResponseWriter, r *http.Request) {
-		currencies, err := repo.List(r.Context())
+		currencies, err := repo.ListCurrencies(r.Context())
 
 		if err != nil {
 			logger.Error("failed to get currencies", "error", err)
