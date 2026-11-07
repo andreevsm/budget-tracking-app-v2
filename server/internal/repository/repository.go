@@ -84,3 +84,33 @@ func (r *Repository) CreateAccount(ctx context.Context, in domain.CreateAccountI
 
 	return domain.Account{}, fmt.Errorf("insert account: %w", err)
 }
+
+func (r *Repository) ListAccounts(ctx context.Context, userID string) ([]domain.Account, error) {
+	const query = `SELECT id, name, account_type, currency, user_id, created_at FROM accounts WHERE user_id = $1 AND NOT is_archived ORDER BY name`
+
+	rows, err := r.pool.Query(ctx, query, userID)
+
+	if err != nil {
+		return nil, fmt.Errorf("query accounts: %w", err)
+	}
+
+	defer rows.Close()
+
+	accounts := make([]domain.Account, 0)
+
+	for rows.Next() {
+		var account domain.Account
+
+		if err := rows.Scan(&account.ID, &account.Name, &account.AccountType, &account.Currency, &account.UserID, &account.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan account: %w", err)
+		}
+
+		accounts = append(accounts, account)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate accounts: %w", err)
+	}
+
+	return accounts, nil
+}
