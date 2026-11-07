@@ -13,7 +13,9 @@ import (
 
 	"budget/internal/config"
 	"budget/internal/db"
+	"budget/internal/domain"
 	"budget/internal/repository"
+	"budget/internal/service"
 )
 
 func main() {
@@ -44,6 +46,7 @@ func main() {
 	defer pool.Close()
 
 	repo := repository.NewRepository(pool)
+	serv := service.NewService(repo)
 
 	mux := http.NewServeMux()
 
@@ -83,6 +86,54 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(currencies)
+	})
+
+	mux.HandleFunc("POST /api/v1/accounts", func(w http.ResponseWriter, r *http.Request) {
+		var in domain.CreateAccountInput
+
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		err := decoder.Decode(&in)
+
+		if err != nil {
+			logger.Warn("failed to decode account", "error", err)
+			http.Error(w, "failed to decode account", http.StatusBadRequest)
+			return
+		}
+
+		account, err := serv.CreateAccount(r.Context(), in)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrDuplicateName):
+				logger.Warn("duplicate name rejected", "error", err)
+				http.Error(w, "name already exists", http.StatusConflict)
+
+			case errors.Is(err, domain.ErrInvalidInput):
+				logger.Warn("wrong input", "error", err)
+				http.Error(w, "wrong input", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrInvalidReference):
+				logger.Warn("invalid reference", "error", err)
+				http.Error(w, "invalid reference", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrUserNotFound):
+				logger.Warn("user not found", "error", err)
+				http.Error(w, "user not found", http.StatusBadRequest)
+
+			default:
+				logger.Error("create account failed", "error", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		logger.Info("account created", "id", account.ID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(account)
 	})
 
 	srv := &http.Server{

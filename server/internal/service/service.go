@@ -51,7 +51,7 @@ func (s *Service) CreateAccount(ctx context.Context, in domain.CreateAccountInpu
 	}
 
 	if utf8.RuneCountInString(name) > 100 {
-		return domain.Account{}, fmt.Errorf("create account: %w: %v", domain.ErrInvalidInput, "name length should be less than 100")
+		return domain.Account{}, fmt.Errorf("create account: %w: %v", domain.ErrInvalidInput, "name length should be at most 100 characters")
 	}
 
 	if utf8.RuneCountInString(in.Currency) != 3 {
