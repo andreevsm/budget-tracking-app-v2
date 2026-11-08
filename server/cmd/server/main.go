@@ -136,6 +136,34 @@ func main() {
 		_ = json.NewEncoder(w).Encode(account)
 	})
 
+	mux.HandleFunc("GET /api/v1/users/{id}/accounts", func(w http.ResponseWriter, r *http.Request) {
+		userID := r.PathValue("id")
+
+		accounts, err := serv.ListAccounts(r.Context(), userID)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrInvalidInput):
+				logger.Warn("wrong input", "error", err)
+				http.Error(w, "wrong input", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrUserNotFound):
+				logger.Warn("user not found", "error", err)
+				http.Error(w, "user not found", http.StatusNotFound)
+
+			default:
+				logger.Error("get accounts failed", "error", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(accounts)
+	})
+
 	srv := &http.Server{
 		Addr:              conf.Addr,
 		Handler:           mux,

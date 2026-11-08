@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 type AccountType string
@@ -89,4 +91,30 @@ func (s *Service) CreateAccount(ctx context.Context, in domain.CreateAccountInpu
 	}
 
 	return account, nil
+}
+
+func (s *Service) ListAccounts(ctx context.Context, userID string) ([]domain.Account, error) {
+	userUUID, err := uuid.Parse(userID)
+
+	if err != nil {
+		return []domain.Account{}, fmt.Errorf("list accounts: %w: %v", domain.ErrInvalidInput, "user_id is not correct")
+	}
+
+	userExists, err := s.repo.UserExists(ctx, userUUID)
+
+	if err != nil {
+		return []domain.Account{}, fmt.Errorf("list accounts: %w", err)
+	}
+
+	if !userExists {
+		return []domain.Account{}, fmt.Errorf("list accounts: %w: %v", domain.ErrUserNotFound, "user doesn't exist")
+	}
+
+	accounts, err := s.repo.ListAccounts(ctx, userUUID)
+
+	if err != nil {
+		return []domain.Account{}, err
+	}
+
+	return accounts, nil
 }

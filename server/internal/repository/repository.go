@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -85,7 +86,7 @@ func (r *Repository) CreateAccount(ctx context.Context, in domain.CreateAccountI
 	return domain.Account{}, fmt.Errorf("insert account: %w", err)
 }
 
-func (r *Repository) ListAccounts(ctx context.Context, userID string) ([]domain.Account, error) {
+func (r *Repository) ListAccounts(ctx context.Context, userID uuid.UUID) ([]domain.Account, error) {
 	const query = `SELECT id, name, account_type, currency, user_id, created_at FROM accounts WHERE user_id = $1 AND NOT is_archived ORDER BY name`
 
 	rows, err := r.pool.Query(ctx, query, userID)
@@ -113,4 +114,18 @@ func (r *Repository) ListAccounts(ctx context.Context, userID string) ([]domain.
 	}
 
 	return accounts, nil
+}
+
+func (r *Repository) UserExists(ctx context.Context, userID uuid.UUID) (bool, error) {
+	const query = `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)`
+
+	var exists bool
+
+	err := r.pool.QueryRow(ctx, query, userID).Scan(&exists)
+
+	if err != nil {
+		return false, fmt.Errorf("user exists: %w", err)
+	}
+
+	return exists, nil
 }
