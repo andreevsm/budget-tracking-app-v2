@@ -164,6 +164,82 @@ func main() {
 		_ = json.NewEncoder(w).Encode(accounts)
 	})
 
+	mux.HandleFunc("POST /api/v1/categories", func(w http.ResponseWriter, r *http.Request) {
+		var in domain.CreateCategoryInput
+
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		err := decoder.Decode(&in)
+
+		if err != nil {
+			logger.Warn("failed to decode category", "error", err)
+			http.Error(w, "failed to decode category", http.StatusBadRequest)
+			return
+		}
+
+		category, err := serv.CreateCategory(r.Context(), in)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrDuplicateName):
+				logger.Warn("duplicate name rejected", "error", err)
+				http.Error(w, "name already exists", http.StatusConflict)
+
+			case errors.Is(err, domain.ErrInvalidInput):
+				logger.Warn("wrong input", "error", err)
+				http.Error(w, "wrong input", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrInvalidReference):
+				logger.Warn("invalid reference", "error", err)
+				http.Error(w, "invalid reference", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrUserNotFound):
+				logger.Warn("user not found", "error", err)
+				http.Error(w, "user not found", http.StatusBadRequest)
+
+			default:
+				logger.Error("create category failed", "error", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		logger.Info("category created", "id", category.ID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(category)
+	})
+
+	mux.HandleFunc("GET /api/v1/users/{id}/categories", func(w http.ResponseWriter, r *http.Request) {
+		userID := r.PathValue("id")
+
+		categories, err := serv.ListCategories(r.Context(), userID)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrInvalidInput):
+				logger.Warn("wrong input", "error", err)
+				http.Error(w, "wrong input", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrUserNotFound):
+				logger.Warn("user not found", "error", err)
+				http.Error(w, "user not found", http.StatusNotFound)
+
+			default:
+				logger.Error("get categories failed", "error", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(categories)
+	})
+
 	srv := &http.Server{
 		Addr:              conf.Addr,
 		Handler:           mux,
