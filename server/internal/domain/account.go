@@ -6,12 +6,13 @@ import (
 )
 
 type Account struct {
-	ID          string    `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UserID      string    `json:"user_id"`
-	Name        string    `json:"name"`
-	AccountType string    `json:"account_type"`
-	Currency    string    `json:"currency"`
+	ID             string    `json:"id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UserID         string    `json:"user_id"`
+	Name           string    `json:"name"`
+	AccountType    string    `json:"account_type"`
+	Currency       string    `json:"currency"`
+	OpeningBalance Money     `json:"opening_balance"`
 }
 
 var ErrDuplicateName = errors.New("account name already exists")
