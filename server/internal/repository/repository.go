@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"budget/internal/domain"
@@ -87,7 +88,7 @@ func (r *Repository) CreateAccount(ctx context.Context, in domain.CreateAccountI
 }
 
 func (r *Repository) ListAccounts(ctx context.Context, userID uuid.UUID) ([]domain.Account, error) {
-	const query = `SELECT id, name, account_type, currency, user_id, created_at FROM accounts WHERE user_id = $1 AND NOT is_archived ORDER BY name`
+	const query = `SELECT id, name, account_type, currency, user_id, opening_balance, created_at FROM accounts WHERE user_id = $1 AND NOT is_archived ORDER BY name`
 
 	rows, err := r.pool.Query(ctx, query, userID)
 
@@ -101,11 +102,19 @@ func (r *Repository) ListAccounts(ctx context.Context, userID uuid.UUID) ([]doma
 
 	for rows.Next() {
 		var account domain.Account
+		var openingBalance pgtype.Numeric
 
-		if err := rows.Scan(&account.ID, &account.Name, &account.AccountType, &account.Currency, &account.UserID, &account.CreatedAt); err != nil {
+		if err := rows.Scan(&account.ID, &account.Name, &account.AccountType, &account.Currency, &account.UserID, &openingBalance, &account.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan account: %w", err)
 		}
 
+		money, err := openingBalance.Value()
+
+		if err != nil {
+			return nil, fmt.Errorf("numeric to string: %w", err)
+		}
+
+		account.OpeningBalance = domain.Money(money.(string))
 		accounts = append(accounts, account)
 	}
 
