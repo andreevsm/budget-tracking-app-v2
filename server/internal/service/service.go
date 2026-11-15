@@ -33,7 +33,7 @@ var AccountTypes = []AccountType{
 	AccountTypeOther,
 }
 
-var CategoryKinds = []domain.CategoryKind{
+var CategoryKinds = []domain.OperationType{
 	domain.Income,
 	domain.Expense,
 }
