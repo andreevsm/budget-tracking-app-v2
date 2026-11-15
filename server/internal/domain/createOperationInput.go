@@ -7,6 +7,7 @@ import (
 )
 
 type CreateOperationInput struct {
+	UserID      uuid.UUID     `json:"user_id"`
 	AccountID   uuid.UUID     `json:"account_id"`
 	CategoryID  *uuid.UUID    `json:"category_id"`
 	Type        OperationType `json:"type"`

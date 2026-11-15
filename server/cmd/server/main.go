@@ -212,6 +212,54 @@ func main() {
 		_ = json.NewEncoder(w).Encode(category)
 	})
 
+	mux.HandleFunc("POST /api/v1/transactions", func(w http.ResponseWriter, r *http.Request) {
+		var in domain.CreateOperationInput
+
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		err := decoder.Decode(&in)
+
+		if err != nil {
+			logger.Warn("failed to decode operation", "error", err)
+			http.Error(w, "failed to decode operation", http.StatusBadRequest)
+			return
+		}
+
+		operation, err := serv.CreateOperation(r.Context(), in)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrDuplicateName):
+				logger.Warn("duplicate name rejected", "error", err)
+				http.Error(w, "name already exists", http.StatusConflict)
+
+			case errors.Is(err, domain.ErrInvalidInput):
+				logger.Warn("wrong input", "error", err)
+				http.Error(w, "wrong input", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrInvalidReference):
+				logger.Warn("invalid reference", "error", err)
+				http.Error(w, "invalid reference", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrAccountNotFound):
+				logger.Warn("account not found", "error", err)
+				http.Error(w, "account not found", http.StatusBadRequest)
+
+			default:
+				logger.Error("create operation failed", "error", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		logger.Info("operation created", "id", operation.ID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(operation)
+	})
+
 	mux.HandleFunc("GET /api/v1/users/{id}/categories", func(w http.ResponseWriter, r *http.Request) {
 		userID := r.PathValue("id")
 
@@ -238,6 +286,35 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(categories)
+	})
+
+	mux.HandleFunc("GET /api/v1/users/{userID}/accounts/{accountID}/transactions", func(w http.ResponseWriter, r *http.Request) {
+		userID := r.PathValue("userID")
+		accountID := r.PathValue("accountID")
+
+		operations, err := serv.ListOperationsByAccount(r.Context(), userID, accountID)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrInvalidInput):
+				logger.Warn("wrong input", "error", err)
+				http.Error(w, "wrong input", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrAccountNotFound):
+				logger.Warn("account not found", "error", err)
+				http.Error(w, "account not found", http.StatusNotFound)
+
+			default:
+				logger.Error("get operations failed", "error", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(operations)
 	})
 
 	srv := &http.Server{
