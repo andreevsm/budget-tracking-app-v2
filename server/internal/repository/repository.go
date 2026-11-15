@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -259,8 +260,9 @@ func (r *Repository) ListOperationsByAccount(ctx context.Context, accountID uuid
 	for rows.Next() {
 		var operation domain.Operation
 		var amount pgtype.Numeric
+		var occurredOn time.Time
 
-		if err := rows.Scan(&operation.ID, &operation.UserID, &operation.AccountID, &operation.CategoryID, &operation.Type, &amount, &operation.OccurredOn, &operation.Payee, &operation.Description, &operation.CreatedAt); err != nil {
+		if err := rows.Scan(&operation.ID, &operation.UserID, &operation.AccountID, &operation.CategoryID, &operation.Type, &amount, &occurredOn, &operation.Payee, &operation.Description, &operation.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan operation: %w", err)
 		}
 
@@ -271,6 +273,7 @@ func (r *Repository) ListOperationsByAccount(ctx context.Context, accountID uuid
 		}
 
 		operation.Amount = domain.Money(money.(string))
+		operation.OccurredOn = domain.Date(occurredOn.Format("2006-01-02"))
 		operations = append(operations, operation)
 	}
 

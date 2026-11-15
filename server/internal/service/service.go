@@ -219,7 +219,10 @@ func (s *Service) CreateOperation(ctx context.Context, in domain.CreateOperation
 		}
 	} else {
 		return domain.Operation{}, fmt.Errorf("create operation: %w: %v", domain.ErrInvalidInput, "amount must be correct")
+	}
 
+	if !in.OccurredOn.Valid() {
+		return domain.Operation{}, fmt.Errorf("create operation: %w: %v", domain.ErrInvalidInput, "occurred_on must be correct")
 	}
 
 	if in.AccountID == uuid.Nil {
