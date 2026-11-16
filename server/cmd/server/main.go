@@ -260,6 +260,46 @@ func main() {
 		_ = json.NewEncoder(w).Encode(operation)
 	})
 
+	mux.HandleFunc("POST /api/v1/transfers", func(w http.ResponseWriter, r *http.Request) {
+		var in domain.CreateTransferInput
+
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		err := decoder.Decode(&in)
+
+		if err != nil {
+			logger.Warn("failed to decode transfer", "error", err)
+			http.Error(w, "failed to decode transfer", http.StatusBadRequest)
+			return
+		}
+
+		transferGroupID, err := serv.CreateTransfer(r.Context(), in)
+
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrInvalidInput):
+				logger.Warn("wrong input", "error", err)
+				http.Error(w, "wrong input", http.StatusBadRequest)
+
+			case errors.Is(err, domain.ErrAccountNotFound):
+				logger.Warn("account not found", "error", err)
+				http.Error(w, "account not found", http.StatusNotFound)
+
+			default:
+				logger.Error("create transfer failed", "error", err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		logger.Info("transfer created", "id", transferGroupID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(transferGroupID)
+	})
+
 	mux.HandleFunc("GET /api/v1/users/{id}/categories", func(w http.ResponseWriter, r *http.Request) {
 		userID := r.PathValue("id")
 

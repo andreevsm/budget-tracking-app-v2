@@ -3,7 +3,6 @@ package domain
 import (
 	"math"
 	"strconv"
-	"strings"
 )
 
 type Money string
@@ -22,8 +21,8 @@ func (m Money) Valid() bool {
 	return !math.IsNaN(n) && !math.IsInf(n, 0)
 }
 
-func (m Money) Negative() bool {
-	return strings.HasPrefix(string(m), "-")
+func (m Money) Negated() Money {
+	return Money("-" + m)
 }
 
 func (n Money) Sign() int {
