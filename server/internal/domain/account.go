@@ -3,12 +3,14 @@ package domain
 import (
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Account struct {
 	ID             string    `json:"id"`
 	CreatedAt      time.Time `json:"created_at"`
-	UserID         string    `json:"user_id"`
+	UserID         uuid.UUID `json:"user_id"`
 	Name           string    `json:"name"`
 	AccountType    string    `json:"account_type"`
 	Currency       string    `json:"currency"`

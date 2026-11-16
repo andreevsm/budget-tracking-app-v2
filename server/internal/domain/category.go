@@ -1,11 +1,15 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type Category struct {
 	ID        string        `json:"id"`
 	Name      string        `json:"name"`
-	UserID    string        `json:"user_id"`
+	UserID    uuid.UUID     `json:"user_id"`
 	Kind      OperationType `json:"kind"`
 	Color     *string       `json:"color"`
 	Icon      *string       `json:"icon"`
