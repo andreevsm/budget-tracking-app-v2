@@ -20,16 +20,49 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;  -- gen_random_uuid() on PG < 13
 -- ---------------------------------------------------------------------------
 -- Enums
 -- ---------------------------------------------------------------------------
-CREATE TYPE account_type          AS ENUM ('checking', 'savings', 'credit_card', 'cash', 'investment', 'loan', 'other');
-CREATE TYPE transaction_type      AS ENUM ('income', 'expense', 'transfer');
-CREATE TYPE category_kind         AS ENUM ('income', 'expense');
-CREATE TYPE budget_period         AS ENUM ('weekly', 'monthly', 'yearly', 'custom');
-CREATE TYPE recurrence_frequency  AS ENUM ('daily', 'weekly', 'monthly', 'yearly');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'account_type') THEN
+        CREATE TYPE account_type AS ENUM ('checking', 'savings', 'credit_card', 'cash', 'investment', 'loan', 'other');
+    END IF;
+END
+$$;
 
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_type') THEN
+    CREATE TYPE transaction_type AS ENUM ('income', 'expense', 'transfer');
+END IF;
+END
+$$;
+
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'category_kind') THEN
+    CREATE TYPE category_kind AS ENUM ('income', 'expense');
+END IF;
+END
+$$;
+
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'budget_period') THEN
+    CREATE TYPE budget_period AS ENUM ('weekly', 'monthly', 'yearly', 'custom');
+END IF;
+END
+$$;
+
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'recurrence_frequency') THEN
+    CREATE TYPE recurrence_frequency AS ENUM ('daily', 'weekly', 'monthly', 'yearly');
+END IF;
+END
+$$;
 -- ---------------------------------------------------------------------------
 -- Currencies & exchange rates
 -- ---------------------------------------------------------------------------
-CREATE TABLE currencies (
+CREATE TABLE IF NOT EXISTS currencies (
     code        CHAR(3) PRIMARY KEY,                    -- ISO 4217
     name        TEXT NOT NULL,
     symbol      TEXT NOT NULL,
@@ -37,7 +70,7 @@ CREATE TABLE currencies (
                 CHECK (minor_units BETWEEN 0 AND 4)     -- JPY=0, KWD=3
 );
 
-CREATE TABLE exchange_rates (
+CREATE TABLE IF NOT EXISTS exchange_rates (
     base     CHAR(3) NOT NULL REFERENCES currencies(code),
     quote    CHAR(3) NOT NULL REFERENCES currencies(code),
     rate     NUMERIC(20, 10) NOT NULL CHECK (rate > 0), -- price of 1 base in quote
@@ -45,12 +78,12 @@ CREATE TABLE exchange_rates (
     PRIMARY KEY (base, quote, rated_on)
 );
 
-CREATE INDEX idx_exchange_rates_quote ON exchange_rates (quote, rated_on);
+CREATE INDEX IF NOT EXISTS idx_exchange_rates_quote ON exchange_rates (quote, rated_on);
 
 -- ---------------------------------------------------------------------------
 -- Users
 -- ---------------------------------------------------------------------------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email         TEXT NOT NULL UNIQUE CHECK (email = lower(email)),
     password_hash TEXT NOT NULL,                        -- argon2id / bcrypt, never plaintext
@@ -62,9 +95,23 @@ CREATE TABLE users (
 );
 
 -- ---------------------------------------------------------------------------
+-- Sessions
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sessions (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL,           -- SHA-256 хэш refresh-токена
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,             -- NULL = активна
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_hash  ON sessions (token_hash);
+
+-- ---------------------------------------------------------------------------
 -- Accounts (wallets, cards, cash)
 -- ---------------------------------------------------------------------------
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id              UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name                 TEXT NOT NULL,
@@ -81,12 +128,12 @@ CREATE TABLE accounts (
     CHECK (account_type = 'credit_card' OR credit_limit IS NULL)
 );
 
-CREATE INDEX idx_accounts_user ON accounts (user_id) WHERE NOT is_archived;
+CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts (user_id) WHERE NOT is_archived;
 
 -- ---------------------------------------------------------------------------
 -- Categories (two-level tree: "Food" -> "Groceries")
 -- ---------------------------------------------------------------------------
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     parent_id   UUID REFERENCES categories(id),         -- NULL = top level
@@ -102,12 +149,12 @@ CREATE TABLE categories (
     -- delete them first. Cycles are prevented in application code.
 );
 
-CREATE INDEX idx_categories_user ON categories (user_id, kind) WHERE NOT is_archived;
+CREATE INDEX IF NOT EXISTS idx_categories_user ON categories (user_id, kind) WHERE NOT is_archived;
 
 -- ---------------------------------------------------------------------------
 -- Recurring transactions (rent, salary, subscriptions)
 -- ---------------------------------------------------------------------------
-CREATE TABLE recurring_transactions (
+CREATE TABLE IF NOT EXISTS recurring_transactions (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     account_id   UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -126,12 +173,12 @@ CREATE TABLE recurring_transactions (
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_recurring_due ON recurring_transactions (next_due_on) WHERE is_active;
+CREATE INDEX IF NOT EXISTS idx_recurring_due ON recurring_transactions (next_due_on) WHERE is_active;
 
 -- ---------------------------------------------------------------------------
 -- Transactions (the ledger; a transfer is TWO linked rows)
 -- ---------------------------------------------------------------------------
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id                   UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     account_id                UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -157,25 +204,25 @@ CREATE TABLE transactions (
     CHECK (type <> 'expense'  OR amount < 0)
 );
 
-CREATE INDEX idx_transactions_user_date     ON transactions (user_id, occurred_on DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_transactions_account_date  ON transactions (account_id, occurred_on DESC);
-CREATE INDEX idx_transactions_category      ON transactions (category_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_transactions_transfer      ON transactions (transfer_group_id) WHERE transfer_group_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_transactions_user_date     ON transactions (user_id, occurred_on DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_transactions_account_date  ON transactions (account_id, occurred_on DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_category      ON transactions (category_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_transactions_transfer      ON transactions (transfer_group_id) WHERE transfer_group_id IS NOT NULL;
 -- Import dedup: one row per external id per account.
-CREATE UNIQUE INDEX uq_transactions_external ON transactions (account_id, external_id)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_transactions_external ON transactions (account_id, external_id)
     WHERE external_id IS NOT NULL AND deleted_at IS NULL;
 
 -- ---------------------------------------------------------------------------
 -- Tags (many-to-many with transactions)
 -- ---------------------------------------------------------------------------
-CREATE TABLE tags (
+CREATE TABLE IF NOT EXISTS tags (
     id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name    TEXT NOT NULL,
     UNIQUE (user_id, name)
 );
 
-CREATE TABLE transaction_tags (
+CREATE TABLE IF NOT EXISTS transaction_tags (
     transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
     tag_id         UUID NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     PRIMARY KEY (transaction_id, tag_id)
@@ -184,7 +231,7 @@ CREATE TABLE transaction_tags (
 -- ---------------------------------------------------------------------------
 -- Budgets: a budget covers a period and limits spending per category
 -- ---------------------------------------------------------------------------
-CREATE TABLE budgets (
+CREATE TABLE IF NOT EXISTS budgets (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name        TEXT NOT NULL,
@@ -198,7 +245,7 @@ CREATE TABLE budgets (
     CHECK (end_date IS NULL OR end_date > start_date)
 );
 
-CREATE TABLE budget_items (
+CREATE TABLE IF NOT EXISTS budget_items (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     budget_id    UUID NOT NULL REFERENCES budgets(id) ON DELETE CASCADE,
     category_id  UUID NOT NULL REFERENCES categories(id),
@@ -206,7 +253,7 @@ CREATE TABLE budget_items (
     UNIQUE (budget_id, category_id)
 );
 
-CREATE INDEX idx_budgets_user ON budgets (user_id) WHERE NOT is_archived;
+CREATE INDEX IF NOT EXISTS idx_budgets_user ON budgets (user_id) WHERE NOT is_archived;
 
 -- ---------------------------------------------------------------------------
 -- updated_at maintenance (drop these if you set it in Go instead)
@@ -217,6 +264,13 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_users_touch    ON users;
+DROP TRIGGER IF EXISTS trg_accounts_touch ON accounts;
+DROP TRIGGER IF EXISTS trg_cats_touch     ON categories;
+DROP TRIGGER IF EXISTS trg_txns_touch     ON transactions;
+DROP TRIGGER IF EXISTS trg_budgets_touch  ON budgets;
+DROP TRIGGER IF EXISTS trg_recurs_touch   ON recurring_transactions;
 
 CREATE TRIGGER trg_users_touch    BEFORE UPDATE ON users                   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 CREATE TRIGGER trg_accounts_touch BEFORE UPDATE ON accounts                FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
@@ -230,7 +284,7 @@ CREATE TRIGGER trg_recurs_touch   BEFORE UPDATE ON recurring_transactions   FOR 
 -- ---------------------------------------------------------------------------
 
 -- Current balance per account = opening + sum of live transactions.
-CREATE VIEW account_balances AS
+CREATE OR REPLACE VIEW account_balances AS
 SELECT a.id AS account_id,
        a.user_id,
        a.name,
@@ -243,7 +297,7 @@ LEFT JOIN transactions t
 GROUP BY a.id;
 
 -- Monthly spend per category (in each account's native currency).
-CREATE VIEW monthly_category_expenses AS
+CREATE OR REPLACE VIEW monthly_category_expenses AS
 SELECT t.user_id,
        date_trunc('month', t.occurred_on)::date AS month,
        t.category_id,
@@ -266,6 +320,7 @@ INSERT INTO currencies (code, name, symbol, minor_units) VALUES
     ('KZT', 'Kazakhstani tenge',   '₸', 2),
     ('AED', 'UAE dirham',          'د.إ', 2),
     ('CNY', 'Chinese yuan',        '¥', 2),
-    ('JPY', 'Japanese yen',        '¥', 0);
+    ('JPY', 'Japanese yen',        '¥', 0)
+ON CONFLICT (code) DO NOTHING;
 
 COMMIT;
