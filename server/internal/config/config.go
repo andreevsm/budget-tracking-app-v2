@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 type Config struct {
-	Addr string
-	DSN  string
+	Addr       string
+	DSN        string
+	JWTSecret  string
+	AccessTTL  time.Duration
+	RefreshTTL time.Duration
 }
 
 func Load() (Config, error) {
@@ -32,6 +36,12 @@ func Load() (Config, error) {
 
 	if !ok || dsn == "" {
 		return Config{}, fmt.Errorf("DB_DSN is required")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+
+	if jwtSecret == "" {
+		return Config{}, fmt.Errorf("JWT_SECRET is required")
 	}
 
 	return Config{Addr: ":" + strconv.Itoa(addr), DSN: dsn}, nil

@@ -46,7 +46,7 @@ func main() {
 	defer pool.Close()
 
 	repo := repository.NewRepository(pool)
-	serv := service.NewService(repo)
+	serv := service.NewService(repo, &conf)
 
 	mux := http.NewServeMux()
 

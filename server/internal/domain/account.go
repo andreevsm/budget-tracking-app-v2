@@ -19,6 +19,7 @@ type Account struct {
 
 var ErrDuplicateName = errors.New("account name already exists")
 var ErrInvalidReference = errors.New("invalid reference")
+var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrInvalidInput = errors.New("invalid input")
 var ErrUserNotFound = errors.New("user not found")
 var ErrAccountNotFound = errors.New("account not found")
