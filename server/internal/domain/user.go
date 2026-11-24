@@ -30,3 +30,11 @@ type Tokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
+
+type RefreshInput struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type LogoutInput struct {
+	RefreshToken string `json:"refresh_token"`
+}

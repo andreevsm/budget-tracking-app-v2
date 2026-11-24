@@ -44,5 +44,21 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("JWT_SECRET is required")
 	}
 
-	return Config{Addr: ":" + strconv.Itoa(addr), DSN: dsn}, nil
+	accessTTL := 15 * time.Minute
+
+	if v := os.Getenv("ACCESS_TTL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			accessTTL = d
+		}
+	}
+
+	refreshTTL := 7 * 24 * time.Hour
+
+	if v := os.Getenv("REFRESH_TTL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			refreshTTL = d
+		}
+	}
+
+	return Config{Addr: ":" + strconv.Itoa(addr), DSN: dsn, AccessTTL: accessTTL, RefreshTTL: refreshTTL}, nil
 }

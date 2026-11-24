@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) CreateTransfer(ctx context.Context, in domain.CreateTransferInput) (uuid.UUID, error) {
+func (s *Service) CreateTransfer(ctx context.Context, userID uuid.UUID, in domain.CreateTransferInput) (uuid.UUID, error) {
 	if in.Amount.Sign() != 1 {
 		return uuid.UUID{}, fmt.Errorf("create transfer: %w: %v", domain.ErrInvalidInput, "amount must be > 0")
 	}
@@ -29,7 +29,7 @@ func (s *Service) CreateTransfer(ctx context.Context, in domain.CreateTransferIn
 		return uuid.UUID{}, fmt.Errorf("create transfer: %w: %v", domain.ErrInvalidInput, "occurred_on must be date")
 	}
 
-	fromAccountExists, err := s.repo.AccountBelongsToUser(ctx, in.FromAccountID, in.UserID)
+	fromAccountExists, err := s.repo.AccountBelongsToUser(ctx, in.FromAccountID, userID)
 
 	if err != nil {
 		return uuid.UUID{}, err
@@ -39,7 +39,7 @@ func (s *Service) CreateTransfer(ctx context.Context, in domain.CreateTransferIn
 		return uuid.UUID{}, fmt.Errorf("create transfer: %w: %v", domain.ErrAccountNotFound, "account doesn't exist by from_account_id")
 	}
 
-	toAccountExists, err := s.repo.AccountBelongsToUser(ctx, in.ToAccountID, in.UserID)
+	toAccountExists, err := s.repo.AccountBelongsToUser(ctx, in.ToAccountID, userID)
 
 	if err != nil {
 		return uuid.UUID{}, err
@@ -51,7 +51,7 @@ func (s *Service) CreateTransfer(ctx context.Context, in domain.CreateTransferIn
 
 	transferGroupID := uuid.New()
 
-	_, err = s.repo.CreateTransfer(ctx, transferGroupID, in)
+	_, err = s.repo.CreateTransfer(ctx, transferGroupID, userID, in)
 
 	if err != nil {
 		return uuid.UUID{}, err

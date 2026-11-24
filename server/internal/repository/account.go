@@ -12,17 +12,17 @@ import (
 	"budget/internal/domain"
 )
 
-func (r *Repository) CreateAccount(ctx context.Context, in domain.CreateAccountInput) (domain.Account, error) {
+func (r *Repository) CreateAccount(ctx context.Context, userID uuid.UUID, in domain.CreateAccountInput) (domain.Account, error) {
 	const query = `INSERT INTO accounts (user_id, name, account_type, currency) VALUES ($1, $2, $3, $4) RETURNING id, created_at`
 
 	account := domain.Account{
-		UserID:      in.UserID,
+		UserID:      userID,
 		Name:        in.Name,
 		AccountType: in.AccountType,
 		Currency:    in.Currency,
 	}
 
-	err := r.pool.QueryRow(ctx, query, in.UserID, in.Name, in.AccountType, in.Currency).Scan(&account.ID, &account.CreatedAt)
+	err := r.pool.QueryRow(ctx, query, account.UserID, account.Name, account.AccountType, account.Currency).Scan(&account.ID, &account.CreatedAt)
 
 	if err == nil {
 		return account, nil

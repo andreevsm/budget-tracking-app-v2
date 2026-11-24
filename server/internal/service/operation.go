@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) CreateOperation(ctx context.Context, in domain.CreateOperationInput) (domain.Operation, error) {
+func (s *Service) CreateOperation(ctx context.Context, userID uuid.UUID, in domain.CreateOperationInput) (domain.Operation, error) {
 	if in.Amount.Valid() {
 		if in.Type == domain.Expense && in.Amount.Sign() != -1 {
 			return domain.Operation{}, fmt.Errorf("create operation: %w: %v", domain.ErrInvalidInput, "amount with type 'expense' must be < 0")
@@ -29,7 +29,7 @@ func (s *Service) CreateOperation(ctx context.Context, in domain.CreateOperation
 		return domain.Operation{}, fmt.Errorf("create operation: %w: %v", domain.ErrInvalidInput, "account_id is missing")
 	}
 
-	accountExists, err := s.repo.AccountBelongsToUser(ctx, in.AccountID, in.UserID)
+	accountExists, err := s.repo.AccountBelongsToUser(ctx, in.AccountID, userID)
 
 	if err != nil {
 		return domain.Operation{}, err
@@ -39,8 +39,7 @@ func (s *Service) CreateOperation(ctx context.Context, in domain.CreateOperation
 		return domain.Operation{}, fmt.Errorf("create operation: %w: %v", domain.ErrAccountNotFound, "account doesn't exist")
 	}
 
-	operation, err := s.repo.CreateOperation(ctx, domain.CreateOperationInput{
-		UserID:      in.UserID,
+	operation, err := s.repo.CreateOperation(ctx, userID, domain.CreateOperationInput{
 		AccountID:   in.AccountID,
 		CategoryID:  in.CategoryID,
 		Type:        in.Type,
@@ -57,13 +56,7 @@ func (s *Service) CreateOperation(ctx context.Context, in domain.CreateOperation
 	return operation, nil
 }
 
-func (s *Service) ListOperationsByAccount(ctx context.Context, userID, accountID string) ([]domain.Operation, error) {
-	userUUID, err := uuid.Parse(userID)
-
-	if err != nil {
-		return []domain.Operation{}, fmt.Errorf("list operations: %w: %v", domain.ErrInvalidInput, "user_id is not correct")
-	}
-
+func (s *Service) ListOperationsByAccount(ctx context.Context, userID uuid.UUID, accountID string) ([]domain.Operation, error) {
 	accountUUID, err := uuid.Parse(accountID)
 
 	if err != nil {
@@ -74,7 +67,7 @@ func (s *Service) ListOperationsByAccount(ctx context.Context, userID, accountID
 		return []domain.Operation{}, fmt.Errorf("list operations: %w: %v", domain.ErrInvalidInput, "account_id is missing")
 	}
 
-	accountExists, err := s.repo.AccountBelongsToUser(ctx, accountUUID, userUUID)
+	accountExists, err := s.repo.AccountBelongsToUser(ctx, accountUUID, userID)
 
 	if err != nil {
 		return []domain.Operation{}, err

@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"budget/internal/domain"
+
+	"github.com/google/uuid"
 )
 
 func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +24,13 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transferGroupID, err := h.serv.CreateTransfer(r.Context(), in)
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	transferGroupID, err := h.serv.CreateTransfer(r.Context(), userID, in)
 
 	if err != nil {
 		switch {

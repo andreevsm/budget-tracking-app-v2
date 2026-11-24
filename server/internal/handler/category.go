@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"budget/internal/domain"
+
+	"github.com/google/uuid"
 )
 
 func (h *Handler) createCategory(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +24,13 @@ func (h *Handler) createCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	category, err := h.serv.CreateCategory(r.Context(), in)
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	category, err := h.serv.CreateCategory(r.Context(), userID, in)
 
 	if err != nil {
 		switch {
@@ -55,7 +63,12 @@ func (h *Handler) createCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {
-	userID := r.PathValue("id")
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	categories, err := h.serv.ListCategories(r.Context(), userID)
 

@@ -75,7 +75,7 @@ func main() {
 		})
 	})
 
-	h := handler.New(serv, logger)
+	h := handler.New(serv, logger, conf.JWTSecret)
 	h.Register(mux)
 
 	srv := &http.Server{

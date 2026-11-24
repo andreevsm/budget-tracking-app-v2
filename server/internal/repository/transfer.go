@@ -11,7 +11,7 @@ import (
 	"budget/internal/domain"
 )
 
-func (r *Repository) CreateTransfer(ctx context.Context, transferGroupID uuid.UUID, in domain.CreateTransferInput) (uuid.UUID, error) {
+func (r *Repository) CreateTransfer(ctx context.Context, transferGroupID uuid.UUID, userID uuid.UUID, in domain.CreateTransferInput) (uuid.UUID, error) {
 	tx, err := r.pool.Begin(ctx)
 
 	if err != nil {
@@ -22,7 +22,7 @@ func (r *Repository) CreateTransfer(ctx context.Context, transferGroupID uuid.UU
 
 	const queryFrom = `INSERT INTO transactions (user_id, account_id, category_id, type, amount, occurred_on, payee, description, transfer_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err = tx.Exec(ctx, queryFrom, in.UserID, in.FromAccountID, nil, "transfer", in.Amount.Negated(), in.OccurredOn, in.Payee, in.Description, transferGroupID)
+	_, err = tx.Exec(ctx, queryFrom, userID, in.FromAccountID, nil, "transfer", in.Amount.Negated(), in.OccurredOn, in.Payee, in.Description, transferGroupID)
 
 	if err != nil {
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
@@ -45,7 +45,7 @@ func (r *Repository) CreateTransfer(ctx context.Context, transferGroupID uuid.UU
 
 	const queryTo = `INSERT INTO transactions (user_id, account_id, category_id, type, amount, occurred_on, payee, description, transfer_group_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err = tx.Exec(ctx, queryTo, in.UserID, in.ToAccountID, nil, "transfer", in.Amount, in.OccurredOn, in.Payee, in.Description, transferGroupID)
+	_, err = tx.Exec(ctx, queryTo, userID, in.ToAccountID, nil, "transfer", in.Amount, in.OccurredOn, in.Payee, in.Description, transferGroupID)
 
 	if err != nil {
 

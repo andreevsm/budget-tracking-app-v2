@@ -32,11 +32,7 @@ var AccountTypes = []AccountType{
 	AccountTypeOther,
 }
 
-func (s *Service) CreateAccount(ctx context.Context, in domain.CreateAccountInput) (domain.Account, error) {
-	if in.UserID == uuid.Nil {
-		return domain.Account{}, fmt.Errorf("create account: %w: %v", domain.ErrInvalidInput, "user_id is empty")
-	}
-
+func (s *Service) CreateAccount(ctx context.Context, userID uuid.UUID, in domain.CreateAccountInput) (domain.Account, error) {
 	name := strings.TrimSpace(in.Name)
 
 	if name == "" {
@@ -70,9 +66,8 @@ func (s *Service) CreateAccount(ctx context.Context, in domain.CreateAccountInpu
 		return domain.Account{}, fmt.Errorf("create account: %w: %v", domain.ErrInvalidInput, "account_type should have correct type")
 	}
 
-	account, err := s.repo.CreateAccount(ctx, domain.CreateAccountInput{
+	account, err := s.repo.CreateAccount(ctx, userID, domain.CreateAccountInput{
 		Name:        name,
-		UserID:      in.UserID,
 		AccountType: in.AccountType,
 		Currency:    in.Currency,
 	})
@@ -84,14 +79,8 @@ func (s *Service) CreateAccount(ctx context.Context, in domain.CreateAccountInpu
 	return account, nil
 }
 
-func (s *Service) ListAccounts(ctx context.Context, userID string) ([]domain.Account, error) {
-	userUUID, err := uuid.Parse(userID)
-
-	if err != nil {
-		return []domain.Account{}, fmt.Errorf("list accounts: %w: %v", domain.ErrInvalidInput, "user_id is not correct")
-	}
-
-	userExists, err := s.repo.UserExists(ctx, userUUID)
+func (s *Service) ListAccounts(ctx context.Context, userID uuid.UUID) ([]domain.Account, error) {
+	userExists, err := s.repo.UserExists(ctx, userID)
 
 	if err != nil {
 		return []domain.Account{}, fmt.Errorf("list accounts: %w", err)
@@ -101,7 +90,7 @@ func (s *Service) ListAccounts(ctx context.Context, userID string) ([]domain.Acc
 		return []domain.Account{}, fmt.Errorf("list accounts: %w: %v", domain.ErrUserNotFound, "user doesn't exist")
 	}
 
-	accounts, err := s.repo.ListAccounts(ctx, userUUID)
+	accounts, err := s.repo.ListAccounts(ctx, userID)
 
 	if err != nil {
 		return []domain.Account{}, err

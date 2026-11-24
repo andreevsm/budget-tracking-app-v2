@@ -3,7 +3,6 @@ package domain
 import "github.com/google/uuid"
 
 type CreateTransferInput struct {
-	UserID        uuid.UUID `json:"user_id"`
 	FromAccountID uuid.UUID `json:"from_account_id"`
 	ToAccountID   uuid.UUID `json:"to_account_id"`
 	Amount        Money     `json:"amount"`

@@ -15,11 +15,7 @@ var CategoryKinds = []domain.OperationType{
 	domain.Expense,
 }
 
-func (s *Service) CreateCategory(ctx context.Context, in domain.CreateCategoryInput) (domain.Category, error) {
-	if in.UserID == uuid.Nil {
-		return domain.Category{}, fmt.Errorf("create category: %w: %v", domain.ErrInvalidInput, "user_id is empty")
-	}
-
+func (s *Service) CreateCategory(ctx context.Context, userID uuid.UUID, in domain.CreateCategoryInput) (domain.Category, error) {
 	if in.ParentID != nil {
 		return domain.Category{}, fmt.Errorf("create category: %w: %v", domain.ErrInvalidInput, "parent_id must be null")
 	}
@@ -47,9 +43,8 @@ func (s *Service) CreateCategory(ctx context.Context, in domain.CreateCategoryIn
 		return domain.Category{}, fmt.Errorf("create category: %w: %v", domain.ErrInvalidInput, "kind should have correct type")
 	}
 
-	category, err := s.repo.CreateCategory(ctx, domain.CreateCategoryInput{
+	category, err := s.repo.CreateCategory(ctx, userID, domain.CreateCategoryInput{
 		Name:     name,
-		UserID:   in.UserID,
 		Kind:     in.Kind,
 		Color:    in.Color,
 		Icon:     in.Icon,
@@ -63,14 +58,8 @@ func (s *Service) CreateCategory(ctx context.Context, in domain.CreateCategoryIn
 	return category, nil
 }
 
-func (s *Service) ListCategories(ctx context.Context, userID string) ([]domain.Category, error) {
-	userUUID, err := uuid.Parse(userID)
-
-	if err != nil {
-		return []domain.Category{}, fmt.Errorf("list categories: %w: %v", domain.ErrInvalidInput, "user_id is not correct")
-	}
-
-	userExists, err := s.repo.UserExists(ctx, userUUID)
+func (s *Service) ListCategories(ctx context.Context, userID uuid.UUID) ([]domain.Category, error) {
+	userExists, err := s.repo.UserExists(ctx, userID)
 
 	if err != nil {
 		return []domain.Category{}, fmt.Errorf("list categories: %w", err)
@@ -80,7 +69,7 @@ func (s *Service) ListCategories(ctx context.Context, userID string) ([]domain.C
 		return []domain.Category{}, fmt.Errorf("list categories: %w: %v", domain.ErrUserNotFound, "user doesn't exist")
 	}
 
-	categories, err := s.repo.ListCategories(ctx, userUUID)
+	categories, err := s.repo.ListCategories(ctx, userID)
 
 	if err != nil {
 		return []domain.Category{}, err

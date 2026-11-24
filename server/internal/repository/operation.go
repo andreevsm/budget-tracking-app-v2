@@ -13,11 +13,11 @@ import (
 	"budget/internal/domain"
 )
 
-func (r *Repository) CreateOperation(ctx context.Context, in domain.CreateOperationInput) (domain.Operation, error) {
+func (r *Repository) CreateOperation(ctx context.Context, userID uuid.UUID, in domain.CreateOperationInput) (domain.Operation, error) {
 	const query = `INSERT INTO transactions (user_id, account_id, category_id, type, amount, occurred_on, payee, description) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at`
 
 	operation := domain.Operation{
-		UserID:      in.UserID,
+		UserID:      userID,
 		AccountID:   in.AccountID,
 		CategoryID:  in.CategoryID,
 		Type:        in.Type,

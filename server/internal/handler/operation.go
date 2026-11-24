@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"budget/internal/domain"
+
+	"github.com/google/uuid"
 )
 
 func (h *Handler) createOperation(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +24,13 @@ func (h *Handler) createOperation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	operation, err := h.serv.CreateOperation(r.Context(), in)
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	operation, err := h.serv.CreateOperation(r.Context(), userID, in)
 
 	if err != nil {
 		switch {
@@ -55,7 +63,13 @@ func (h *Handler) createOperation(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listOperationsByAccount(w http.ResponseWriter, r *http.Request) {
-	userID := r.PathValue("userID")
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	accountID := r.PathValue("accountID")
 
 	operations, err := h.serv.ListOperationsByAccount(r.Context(), userID, accountID)

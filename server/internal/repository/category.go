@@ -11,7 +11,7 @@ import (
 	"budget/internal/domain"
 )
 
-func (r *Repository) CreateCategory(ctx context.Context, in domain.CreateCategoryInput) (domain.Category, error) {
+func (r *Repository) CreateCategory(ctx context.Context, userID uuid.UUID, in domain.CreateCategoryInput) (domain.Category, error) {
 	const query = `INSERT INTO categories (name, kind, color, icon, parent_id, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`
 
 	category := domain.Category{
@@ -20,10 +20,10 @@ func (r *Repository) CreateCategory(ctx context.Context, in domain.CreateCategor
 		Color:    in.Color,
 		Icon:     in.Icon,
 		ParentID: in.ParentID,
-		UserID:   in.UserID,
+		UserID:   userID,
 	}
 
-	err := r.pool.QueryRow(ctx, query, in.Name, in.Kind, in.Color, in.Icon, in.ParentID, in.UserID).Scan(&category.ID, &category.CreatedAt)
+	err := r.pool.QueryRow(ctx, query, in.Name, in.Kind, in.Color, in.Icon, in.ParentID, userID).Scan(&category.ID, &category.CreatedAt)
 
 	if err == nil {
 		return category, nil
