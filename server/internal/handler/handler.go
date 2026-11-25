@@ -30,6 +30,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.Handle("DELETE /api/v1/transactions/{transactionID}", requireAuth(h.secret)(http.HandlerFunc(h.deleteOperation)))
 	mux.Handle("GET /api/v1/accounts/{accountID}/transactions", requireAuth(h.secret)(http.HandlerFunc(h.listOperationsByAccount)))
 	mux.Handle("POST /api/v1/transfers", requireAuth(h.secret)(http.HandlerFunc(h.createTransfer)))
+	mux.Handle("GET /api/v1/accounts/{accountID}/statistics", requireAuth(h.secret)(http.HandlerFunc(h.getAccountStatistics)))
 
 	mux.HandleFunc("POST /api/v1/auth/register", h.register)
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
