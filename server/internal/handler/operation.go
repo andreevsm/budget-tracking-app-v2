@@ -94,3 +94,115 @@ func (h *Handler) listOperationsByAccount(w http.ResponseWriter, r *http.Request
 
 	h.writeJSON(w, http.StatusOK, operations)
 }
+
+func (h *Handler) getOperation(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	operationID, err := uuid.Parse(r.PathValue("transactionID"))
+	if err != nil {
+		http.Error(w, "wrong input", http.StatusBadRequest)
+		return
+	}
+
+	operation, err := h.serv.GetOperation(r.Context(), userID, operationID)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrOperationNotFound):
+			h.logger.Warn("operation not found", "error", err)
+			http.Error(w, "operation not found", http.StatusNotFound)
+
+		default:
+			h.logger.Error("get operation failed", "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, operation)
+}
+
+func (h *Handler) updateOperation(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	operationID, err := uuid.Parse(r.PathValue("transactionID"))
+	if err != nil {
+		http.Error(w, "wrong input", http.StatusBadRequest)
+		return
+	}
+
+	var in domain.UpdateOperationInput
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	if err := decoder.Decode(&in); err != nil {
+		h.logger.Warn("failed to decode operation", "error", err)
+		http.Error(w, "failed to decode operation", http.StatusBadRequest)
+		return
+	}
+
+	operation, err := h.serv.UpdateOperation(r.Context(), userID, operationID, in)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidInput):
+			h.logger.Warn("wrong input", "error", err)
+			http.Error(w, "wrong input", http.StatusBadRequest)
+
+		case errors.Is(err, domain.ErrOperationNotFound):
+			h.logger.Warn("operation not found", "error", err)
+			http.Error(w, "operation not found", http.StatusNotFound)
+
+		default:
+			h.logger.Error("update operation failed", "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+
+		return
+	}
+
+	h.logger.Info("operation updated", "id", operationID)
+	h.writeJSON(w, http.StatusOK, operation)
+}
+
+func (h *Handler) deleteOperation(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(userIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	operationID, err := uuid.Parse(r.PathValue("transactionID"))
+	if err != nil {
+		http.Error(w, "wrong input", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.serv.DeleteOperation(r.Context(), userID, operationID); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidInput):
+			h.logger.Warn("wrong input", "error", err)
+			http.Error(w, "wrong input", http.StatusBadRequest)
+
+		case errors.Is(err, domain.ErrOperationNotFound):
+			h.logger.Warn("operation not found", "error", err)
+			http.Error(w, "operation not found", http.StatusNotFound)
+
+		default:
+			h.logger.Error("delete operation failed", "error", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -25,6 +25,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/categories", requireAuth(h.secret)(http.HandlerFunc(h.createCategory)))
 	mux.Handle("GET /api/v1/categories", requireAuth(h.secret)(http.HandlerFunc(h.listCategories)))
 	mux.Handle("POST /api/v1/transactions", requireAuth(h.secret)(http.HandlerFunc(h.createOperation)))
+	mux.Handle("GET /api/v1/transactions/{transactionID}", requireAuth(h.secret)(http.HandlerFunc(h.getOperation)))
+	mux.Handle("PUT /api/v1/transactions/{transactionID}", requireAuth(h.secret)(http.HandlerFunc(h.updateOperation)))
+	mux.Handle("DELETE /api/v1/transactions/{transactionID}", requireAuth(h.secret)(http.HandlerFunc(h.deleteOperation)))
 	mux.Handle("GET /api/v1/accounts/{accountID}/transactions", requireAuth(h.secret)(http.HandlerFunc(h.listOperationsByAccount)))
 	mux.Handle("POST /api/v1/transfers", requireAuth(h.secret)(http.HandlerFunc(h.createTransfer)))
 

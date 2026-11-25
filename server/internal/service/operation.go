@@ -85,3 +85,58 @@ func (s *Service) ListOperationsByAccount(ctx context.Context, userID uuid.UUID,
 
 	return operations, nil
 }
+
+func (s *Service) GetOperation(ctx context.Context, userID, operationID uuid.UUID) (domain.Operation, error) {
+	return s.repo.GetOperation(ctx, operationID, userID)
+}
+
+func (s *Service) UpdateOperation(ctx context.Context, userID, operationID uuid.UUID, in domain.UpdateOperationInput) (domain.Operation, error) {
+	existing, err := s.repo.GetOperation(ctx, operationID, userID)
+	if err != nil {
+		return domain.Operation{}, err
+	}
+
+	if !in.Amount.Valid() {
+		return domain.Operation{}, fmt.Errorf("update operation: %w: %v", domain.ErrInvalidInput, "amount must be correct")
+	}
+
+	if existing.Type == domain.Income && in.Amount.Sign() != 1 {
+		return domain.Operation{}, fmt.Errorf("update operation: %w: %v", domain.ErrInvalidInput, "amount with type 'income' must be > 0")
+	}
+
+	if existing.Type == domain.Expense && in.Amount.Sign() != -1 {
+		return domain.Operation{}, fmt.Errorf("update operation: %w: %v", domain.ErrInvalidInput, "amount with type 'expense' must be < 0")
+	}
+
+	if !in.OccurredOn.Valid() {
+		return domain.Operation{}, fmt.Errorf("update operation: %w: %v", domain.ErrInvalidInput, "occurred_on must be correct")
+	}
+
+	if existing.Type == domain.Transfer && existing.TransferGroupID != nil {
+		if in.Amount.Sign() != 1 {
+			return domain.Operation{}, fmt.Errorf("update operation: %w: %v", domain.ErrInvalidInput, "transfer amount must be > 0")
+		}
+		if err := s.repo.UpdateTransfer(ctx, *existing.TransferGroupID, userID, in); err != nil {
+			return domain.Operation{}, err
+		}
+	} else {
+		if err := s.repo.UpdateOperation(ctx, operationID, userID, in); err != nil {
+			return domain.Operation{}, err
+		}
+	}
+
+	return s.repo.GetOperation(ctx, operationID, userID)
+}
+
+func (s *Service) DeleteOperation(ctx context.Context, userID, operationID uuid.UUID) error {
+	existing, err := s.repo.GetOperation(ctx, operationID, userID)
+	if err != nil {
+		return err
+	}
+
+	if existing.Type == domain.Transfer && existing.TransferGroupID != nil {
+		return s.repo.DeleteTransfer(ctx, *existing.TransferGroupID, userID)
+	}
+
+	return s.repo.DeleteOperation(ctx, operationID, userID)
+}
